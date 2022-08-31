@@ -1,0 +1,110 @@
+library(caret)
+library(MASS)
+library(glmulti)
+library(InformationValue)
+library(ISLR)
+
+library(mice)
+library(missForest)
+library(mi)
+library(Hmisc)
+
+bank_data <- read.csv("bank.csv")
+summary(bank_data)
+View(bank_data)
+
+#remove  housing, loan, day, month, duration, campaign
+bank_data_2<- bank_data[ , -c(10:15)]
+head(bank_data_2)
+View(bank_data_2)
+summary(bank_data_2)
+
+bank_data_2$dummy_age <- ifelse(bank_data_2$age > 39,0,1)
+bank_data_2$dummy_management<- ifelse(bank_data_2$job == "management", 1, 0)
+bank_data_2$dummy_bluecollar<- ifelse(bank_data_2$job == "blue-collar", 1, 0)
+bank_data_2$dummy_selfemployed<- ifelse(bank_data_2$job == "self-employed", 1, 0)
+bank_data_2$dummy_unemployed<- ifelse(bank_data_2$job == "unemployed", 1, 0)
+bank_data_2$dummy_student<- ifelse(bank_data_2$job == "student", 1, 0)
+bank_data_2$dummy_housemaid<- ifelse(bank_data_2$job == "housemaid", 1, 0)
+bank_data_2$dummy_technician<- ifelse(bank_data_2$job == "technician", 1, 0)
+bank_data_2$dummy_entrepreneur<- ifelse(bank_data_2$job == "entrepreneur", 1, 0)
+bank_data_2$dummy_admin<- ifelse(bank_data_2$job == "admin.", 1, 0)
+bank_data_2$dummy_services<- ifelse(bank_data_2$job == "services", 1, 0)
+bank_data_2$dummy_retired<- ifelse(bank_data_2$job == "retired", 1, 0)
+
+bank_data_2$dummy_married <- ifelse(bank_data_2$marital == "married", 1,0)
+bank_data_2$dummy_single <- ifelse(bank_data_2$marital == "single", 1,0)
+bank_data_2$dummy_divorced <- ifelse(bank_data_2$marital == "divorced", 1,0)
+
+
+bank_data_2$dummy_primary <- ifelse(bank_data_2$education == "primary" , 1,0)
+bank_data_2$dummy_secondary <- ifelse(bank_data_2$education == "secondary" , 1,0)
+bank_data_2$dummy_tertiary <- ifelse(bank_data_2$education == "tertiary" , 1,0)
+bank_data_2$dummy_unknowned <- ifelse(bank_data_2$education == "unknown" , 1,0)
+
+bank_data_2$dummy_cellular <- ifelse(bank_data_2$contact == "cellular", 1,0)
+bank_data_2$dummy_unknown <- ifelse(bank_data_2$contact == "unknown", 1,0)
+bank_data_2$dummy_telephone <- ifelse(bank_data_2$contact == "telephone", 1,0)
+
+bank_data_2$dummy_unknownout <- ifelse(bank_data_2$poutcome == "unknown", 1,0)
+bank_data_2$dummy_success <- ifelse(bank_data_2$poutcome == "success", 1,0)
+bank_data_2$dummy_failure <- ifelse(bank_data_2$poutcome == "failure", 1,0)
+
+bank_data_2$dummy_default <- ifelse(bank_data_2$default=="yes", 1,0)
+bank_data_2$dummy_loan <- ifelse(bank_data_2$loan=="yes", 1,0)
+bank_data_2$dummy_housing <- ifelse(bank_data_2$housing=="yes", 1,0)
+bank_data_2$dummy_y <- ifelse(bank_data_2$y == "yes", 1,0)
+
+View(bank_data_2)
+
+
+## Scale balance
+
+
+install.packages("scales")                              # Install & load scales
+library("scales")
+
+Scale_balance <- rescale(bank_data_2$balance, to = c(0, 1))                # Scale to 0/1
+head(Scale_balance)                                        # Print head of scaled values
+
+
+bank_data_new <- bank_data_2[, -c(1:5, 7:11)]
+head(bank_data_new)
+View(bank_data_new)
+
+##library(writexl)
+##write_xlsx(bank_data_new,"Desktop\\banknewdata.xlsx")
+
+
+
+#split dataset into training and testing set
+set.seed(1)
+sample <- sample(c(TRUE, FALSE), nrow(bank_data_new), replace=TRUE, prob=c(0.7,0.3))
+train <- bank_data_new[sample, ]
+test <- bank_data_new[!sample, ]
+
+#######logistic regression#####
+
+reg1<-glm(bank_data_new$dummy_y ~ balance + dummy_cellular + 
+            dummy_unknown + dummy_telephone + dummy_primary + dummy_secondary + dummy_tertiary + 
+            dummy_married + dummy_single + dummy_divorced + dummy_unemployed + dummy_bluecollar + dummy_retired+ dummy_services +
+          dummy_unknowned + dummy_management + dummy_housemaid + dummy_student + dummy_admin + dummy_entrepreneur +
+            dummy_technician + dummy_housing + dummy_default + dummy_unknownout + dummy_success + dummy_failure + dummy_loan, data = bank_data_new, family = "binomial")
+summary(reg1)
+
+logit <- c(-1.160,-0.00000405,0.0697,-0.7802,0,0.264,0.402,0.497,-0.532,-0.202,0,-0.383,-0.2709,0.68,-0.230,0,-0.025,-0.0119,0.335,-0.124,-0.136,-0.288,-0.328,0.322,-0.678,1.948,-0.482,-0.628) %*% reg1$coefficients
+odds <- exp(-logit)
+prob <- 1/(1+odds)
+prob
+
+reg2<-glm(bank_data_new$dummy_y ~ balance + dummy_cellular + 
+            dummy_unknown  + dummy_primary + dummy_secondary + dummy_tertiary + 
+            dummy_married + dummy_single + dummy_unemployed + dummy_bluecollar + dummy_retired+ dummy_services +
+            dummy_management + dummy_housemaid + dummy_student + dummy_admin + dummy_entrepreneur +
+            dummy_technician + dummy_housing + dummy_default + dummy_unknownout + dummy_success + dummy_failure + dummy_loan, data = bank_data_new, family = "binomial")
+summary(reg2)
+
+logit2 <- c(-1.160,-0.00000405,0.0697,-0.7802,0.264,0.402,0.497,-0.532,-0.202,-0.383,-0.2709,0.68,-0.230,-0.025,-0.0119,0.335,-0.124,-0.136,-0.288,-0.328,0.322,-0.678,1.948,-0.482,-0.628) %*% reg2$coefficients
+odds2 <- exp(-logit2)
+prob2 <- 1/(1+odds2)
+prob2
