@@ -1,0 +1,93 @@
+library(caret)
+library(neuralnet)
+library(forecast)
+library(gains)
+library(ROSE)
+install.packages("ROSE")
+
+t(t(names(bank_data_new)))
+# remove unnecessary variables
+#df <- df[,-c(1)]
+#t(t(names(df)))
+# check and re,ove missing values
+summary(bank_data_new)
+prop.table(table(bank_data_new$dummy_y))
+barplot(prop.table(table(bank_data_new$dummy_y)))
+
+
+#data partition
+
+View(bank_data_new)
+
+set.seed(12)
+
+train.index <- sample(row.names(bank_data_new), 0.6*dim(bank_data_new)[1])  
+valid.index <- setdiff(row.names(bank_data_new), train.index)  
+train.df <- bank_data_new[train.index, ]
+valid.df <- bank_data_new[valid.index, ]
+t(t(names(valid.df)))
+table(bank_data_new$dummy_y)
+
+#sampling
+#under<- ovun.sample(y ~. , data=df,method= "under",N= 1042)$data
+#table(under$y)
+#a<- randomForest(y~.,data=under)
+#fac<- as.factor(a)
+#confusionMatrix(predict(a,valid.df),valid.df$y,positive='1')
+
+
+
+#normalise
+norm.values <- preProcess(train.df[,-15], method="range")
+train.norm.df <- predict(norm.values, train.df[,-15])
+valid.norm.df <- predict(norm.values, valid.df[,-15])
+
+
+## One layer, Two nodes ####
+nn <- neuralnet(train.df$dummy_y ~ .,
+          data = train.norm.df, hidden = 2) 
+
+plot(nn)
+
+
+#predictions on training and validation data
+options(scipen = 0)
+#training predictions
+train.pred <- compute(nn, train.norm.df)
+train.pred <- train.pred$net.result
+# convert probabilities to classes
+train.class <- (1* (train.pred>0.5)) 
+confusionMatrix(train.class, train.df$dummy_y)
+
+valid.pred <- compute(nn, valid.norm.df)
+valid.pred <- valid.pred$net.result
+# convert probabilities to classes
+valid.class <- (1* (valid.pred>0.5))
+# confusion matrix 
+confusionMatrix(factor(valid.class),factor(valid.df$dummy_y))
+
+
+### One layer, 5 nodes ####
+
+nn <- neuralnet(train.df$dummy_y ~ .,
+                data = train.norm.df, hidden = c(2,2)) 
+
+plot(nn)
+
+#predictions on training and validation data
+options(scipen = 0)
+#training predictions
+train.pred <- compute(nn, train.norm.df)
+train.pred <- train.pred$net.result
+# convert probabilities to classes
+train.class <- (1* (train.pred>0.5)) 
+confusionMatrix(factor(train.class),factor(train.df$dummy_y))
+
+valid.pred <- compute(nn, valid.norm.df)
+valid.pred <- valid.pred$net.result
+# convert probabilities to classes
+valid.class <- (1* (valid.pred>0.5))
+# confusion matrix 
+confusionMatrix(factor(valid.class),factor(valid.df$dummy_y))
+
+
